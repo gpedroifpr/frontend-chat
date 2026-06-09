@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Meu Chatbot na Nuvem</title>
+    <!-- Fase 3: Adiciona a biblioteca para traduzir Markdown (negritos, listas, etc) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .chat-container { background: white; width: 400px; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
@@ -10,22 +12,27 @@
         .mensagem { margin-bottom: 10px; padding: 8px; border-radius: 5px; }
         .user { background: #007bff; color: white; text-align: right; }
         .bot { background: #ddd; color: black; text-align: left; }
-        input { width: 75%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
-        button { width: 20%; padding: 10px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .controles { display: flex; gap: 5px; }
+        input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        .btn-enviar { padding: 10px 15px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        /* Estilo do novo botão de limpar */
+        .btn-limpar { width: 100%; padding: 8px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="chat-container">
         <h2>🤖 Assistente IA</h2>
         <div class="historico" id="historico"></div>
-        <div>
+        <div class="controles">
             <input type="text" id="pergunta" placeholder="Digite sua pergunta...">
-            <button onclick="enviarMensagem()">Enviar</button>
+            <button class="btn-enviar" onclick="enviarMensagem()">Enviar</button>
         </div>
+        <!-- Novo Botão de Limpar (Fase 3) -->
+        <button class="btn-limpar" onclick="limparConversa()">🗑️ Limpar Conversa</button>
     </div>
 
     <script>
-        // URL da sua API no Render (com o /api/chat no final)
+        // --- ATENÇÃO: VERIFIQUE SE ESTE É O LINK DO SEU RENDER ---
         const URL_BACKEND = "https://agente-de-ia-postman.onrender.com/api/chat";
 
         async function enviarMensagem() {
@@ -39,6 +46,7 @@
             historico.innerHTML += `<div class="mensagem user">${texto}</div>`;
             input.value = "";
             historico.innerHTML += `<div class="mensagem bot" id="loading">Pensando...</div>`;
+            historico.scrollTop = historico.scrollHeight;
 
             try {
                 // 2. Faz o Fetch (POST) para a SUA API na Nuvem
@@ -50,15 +58,42 @@
 
                 const dados = await resposta.json();
 
-                // 3. Remove o "Pensando..." e mostra a resposta real
+                // 3. Remove o "Pensando..."
                 document.getElementById("loading").remove();
-                historico.innerHTML += `<div class="mensagem bot">${dados.resposta}</div>`;
+
+                // CONVERTE A RESPOSTA COM MARKDOWN PARA HTML (Fase 3)
+                const respostaFormatada = marked.parse(dados.resposta);
+                historico.innerHTML += `<div class="mensagem bot">${respostaFormatada}</div>`;
                 
                 // Rola o chat para baixo
                 historico.scrollTop = historico.scrollHeight;
 
             } catch (erro) {
                 document.getElementById("loading").innerHTML = "Erro de conexão com o Servidor ❌";
+            }
+        }
+
+        // Nova Função para apagar o histórico de mensagens (Fase 3)
+        async function limparConversa() {
+            const historico = document.getElementById("historico");
+            
+            if(confirm("Deseja realmente limpar todo o histórico de conversas do MongoDB?")) {
+                try {
+                    // Faz uma requisição DELETE para apagar o banco
+                    const resposta = await fetch(`${URL_BACKEND}/limpar`, {
+                        method: "DELETE"
+                    });
+                    
+                    const resultado = await resposta.json();
+                    
+                    if(resultado.sucesso) {
+                        historico.innerHTML = `<div class="mensagem bot" style="font-style: italic; color: #777;">Conversa resetada com sucesso!</div>`;
+                    } else {
+                        alert("Erro ao limpar dados no servidor.");
+                    }
+                } catch (erro) {
+                    alert("Erro de conexão ao tentar limpar a conversa.");
+                }
             }
         }
     </script>
