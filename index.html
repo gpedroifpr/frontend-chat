@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Meu Chatbot na Nuvem</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .chat-container { background: white; width: 400px; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .historico { height: 300px; overflow-y: auto; background: #eef2f3; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+        .mensagem { margin-bottom: 10px; padding: 8px; border-radius: 5px; }
+        .user { background: #007bff; color: white; text-align: right; }
+        .bot { background: #ddd; color: black; text-align: left; }
+        input { width: 75%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        button { width: 20%; padding: 10px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h2>🤖 Assistente IA</h2>
+        <div class="historico" id="historico"></div>
+        <div>
+            <input type="text" id="pergunta" placeholder="Digite sua pergunta...">
+            <button onclick="enviarMensagem()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        // URL da sua API no Render (com o /api/chat no final)
+        const URL_BACKEND = "https://agente-de-ia-postman.onrender.com/api/chat";
+
+        async function enviarMensagem() {
+            const input = document.getElementById("pergunta");
+            const historico = document.getElementById("historico");
+            const texto = input.value;
+
+            if(!texto) return;
+
+            // 1. Mostra a mensagem do usuário na tela
+            historico.innerHTML += `<div class="mensagem user">${texto}</div>`;
+            input.value = "";
+            historico.innerHTML += `<div class="mensagem bot" id="loading">Pensando...</div>`;
+
+            try {
+                // 2. Faz o Fetch (POST) para a SUA API na Nuvem
+                const resposta = await fetch(URL_BACKEND, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pergunta: texto })
+                });
+
+                const dados = await resposta.json();
+
+                // 3. Remove o "Pensando..." e mostra a resposta real
+                document.getElementById("loading").remove();
+                historico.innerHTML += `<div class="mensagem bot">${dados.resposta}</div>`;
+                
+                // Rola o chat para baixo
+                historico.scrollTop = historico.scrollHeight;
+
+            } catch (erro) {
+                document.getElementById("loading").innerHTML = "Erro de conexão com o Servidor ❌";
+            }
+        }
+    </script>
+</body>
+</html>
