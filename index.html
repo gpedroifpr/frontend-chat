@@ -2,97 +2,266 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Meu Chatbot na Nuvem</title>
-    <!-- Fase 3: Adiciona a biblioteca para traduzir Markdown (negritos, listas, etc) -->
+    <title>Enigma Master - SaaS Seguro</title>
+    <!-- Marked.js para ler Markdown das respostas -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Canvas-Confetti para animações (Desafio Hacker) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .chat-container { background: white; width: 400px; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .historico { height: 300px; overflow-y: auto; background: #eef2f3; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
-        .mensagem { margin-bottom: 10px; padding: 8px; border-radius: 5px; }
-        .user { background: #007bff; color: white; text-align: right; }
-        .bot { background: #ddd; color: black; text-align: left; }
-        .controles { display: flex; gap: 5px; }
-        input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
-        .btn-enviar { padding: 10px 15px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        /* Estilo do novo botão de limpar */
-        .btn-limpar { width: 100%; padding: 8px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold; }
+        body { font-family: Arial, sans-serif; background-color: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: #fff; }
+        .game-wrapper { display: flex; gap: 20px; max-width: 900px; width: 100%; padding: 20px; }
+        .chat-container { background: #161233; flex: 1.5; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .ranking-container { background: #161233; flex: 1; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+        .auth-container { background: #161233; padding: 30px; border-radius: 10px; width: 350px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: center; }
+        .historico { height: 300px; overflow-y: auto; background: #0f0c24; padding: 10px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #332a63; }
+        .mensagem { margin-bottom: 10px; padding: 8px; border-radius: 5px; line-height: 1.4; }
+        .user { background: #007bff; color: white; text-align: right; margin-left: 20%; }
+        .bot { background: #2a2456; color: #fff; text-align: left; margin-right: 20%; border: 1px solid #483d8b; }
+        .controles { display: flex; gap: 5px; margin-top: 10px; }
+        input { width: 100%; padding: 10px; border: 1px solid #332a63; border-radius: 5px; background: #0f0c24; color: #fff; box-sizing: border-box; margin-bottom: 10px; }
+        button { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-enviar { background: #28a745; color: white; }
+        .btn-limpar { background: #dc3545; color: white; width: 100%; margin-top: 10px; }
+        .btn-ranking { background: #ffc107; color: #111; width: 100%; margin-bottom: 10px; }
+        .btn-logout { background: #dc3545; color: white; padding: 5px 10px; font-size: 0.8em; margin-left: auto; }
+        .ranking-list { list-style: none; padding: 0; margin: 0; }
+        .ranking-item { padding: 8px; border-bottom: 1px solid #332a63; display: flex; justify-content: space-between; font-size: 0.9em; }
+        .user-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: #0f0c24; padding: 10px; border-radius: 5px; border: 1px solid #332a63; }
+        .toggle-auth { color: #ffc107; cursor: pointer; text-decoration: underline; font-size: 0.9em; margin-top: 15px; display: inline-block; }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <h2>🤖 Assistente IA</h2>
-        <div class="historico" id="historico"></div>
-        <div class="controles">
-            <input type="text" id="pergunta" placeholder="Digite sua pergunta...">
-            <button class="btn-enviar" onclick="enviarMensagem()">Enviar</button>
+
+    <!-- FASE 6: TELA DE LOGIN / CADASTRO -->
+    <div class="auth-container" id="authBox">
+        <h2 id="authTitle">🔮 Enigma SaaS</h2>
+        
+        <div id="loginForm">
+            <input type="text" id="loginEmail" placeholder="Seu e-mail...">
+            <input type="password" id="loginSenha" placeholder="Sua senha...">
+            <button onclick="fazerLogin()" style="background: #28a745; color: white; width: 100%;">Entrar</button>
+            <span class="toggle-auth" onclick="toggleAuth(false)">Não tem cadastro? Crie uma conta aqui</span>
         </div>
-        <!-- Novo Botão de Limpar (Fase 3) -->
-        <button class="btn-limpar" onclick="limparConversa()">🗑️ Limpar Conversa</button>
+
+        <div id="registerForm" style="display: none;">
+            <input type="text" id="regNome" placeholder="Seu nome ou apelido...">
+            <input type="text" id="regEmail" placeholder="Seu e-mail...">
+            <input type="password" id="regSenha" placeholder="Escolha uma senha...">
+            <button onclick="fazerCadastro()" style="background: #ffc107; color: #111; width: 100%;">Cadastrar Conta</button>
+            <span class="toggle-auth" onclick="toggleAuth(true)">Já tem conta? Faça Login</span>
+        </div>
+    </div>
+
+    <!-- TELA PRINCIPAL DO JOGO -->
+    <div class="game-wrapper" id="gameBox" style="display: none;">
+        <div class="chat-container">
+            <div class="user-header">
+                <span id="userLogado" style="color: #ffc107; font-weight: bold;"></span>
+                <!-- Desafio Hacker: Botão Sair -->
+                <button class="btn-logout" onclick="fazerLogout()">Sair (Logout)</button>
+            </div>
+
+            <div class="historico" id="historico">
+                <div class="mensagem bot">Bem-vindo ao Cofre! Pergunte algo para mim ou peça para começar as charadas!</div>
+            </div>
+            
+            <div class="controles">
+                <input type="text" id="pergunta" placeholder="Escreva sua resposta ou pergunta...">
+                <button class="btn-enviar" onclick="enviarMensagem()">Enviar</button>
+            </div>
+            <button class="btn-limpar" onclick="limparConversa()">🗑️ Limpar Conversa</button>
+        </div>
+
+        <div class="ranking-container">
+            <h3>🏆 Leaderboard Global</h3>
+            <button class="btn-ranking" onclick="buscarRanking()">🔄 Atualizar Classificação</button>
+            <div style="overflow-y: auto; flex: 1;">
+                <ul class="ranking-list" id="rankingList">
+                    <li style="color: #777; font-style: italic; text-align: center;">Buscando dados no ranking...</li>
+                </ul>
+            </div>
+        </div>
     </div>
 
     <script>
-        // --- ATENÇÃO: VERIFIQUE SE ESTE É O LINK DO SEU RENDER ---
-        const URL_BACKEND = "https://agente-de-ia-postman.onrender.com/api/chat";
+        const URL_BASE = "https://agente-de-ia-postman.onrender.com";
+        
+        // Desafio Hacker: Persistência de Login ao carregar a página (F5)
+        window.onload = function() {
+            const token = localStorage.getItem('token_saas');
+            const nome = localStorage.getItem('nome_saas');
+            
+            if (token && nome) {
+                iniciarSessao(nome);
+            }
+        };
+
+        function toggleAuth(showLogin) {
+            document.getElementById("authTitle").innerText = showLogin ? "🔮 Enigma SaaS" : "✍️ Criar Conta";
+            document.getElementById("loginForm").style.display = showLogin ? "block" : "none";
+            document.getElementById("registerForm").style.display = showLogin ? "none" : "block";
+        }
+
+        async function fazerCadastro() {
+            const nome = document.getElementById("regNome").value.trim();
+            const email = document.getElementById("regEmail").value.trim();
+            const senha = document.getElementById("regSenha").value.trim();
+
+            if (!nome || !email || !senha) return alert("Preencha todos os campos!");
+
+            try {
+                const resposta = await fetch(`${URL_BASE}/api/auth/register`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nome, email, senha })
+                });
+                const dados = await resposta.json();
+                
+                if (dados.sucesso) {
+                    alert("Cadastro efetuado! Faça o login para começar.");
+                    toggleAuth(true);
+                } else {
+                    alert(dados.erro || "Erro ao cadastrar.");
+                }
+            } catch {
+                alert("Erro de conexão ao cadastrar.");
+            }
+        }
+
+        async function fazerLogin() {
+            const email = document.getElementById("loginEmail").value.trim();
+            const senha = document.getElementById("loginSenha").value.trim();
+
+            if (!email || !senha) return alert("Preencha todos os campos!");
+
+            try {
+                const resposta = await fetch(`${URL_BASE}/api/auth/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, senha })
+                });
+                const dados = await resposta.json();
+
+                if (dados.sucesso) {
+                    // Guardar Crachá (Token) no navegador
+                    localStorage.setItem('token_saas', dados.token);
+                    localStorage.setItem('nome_saas', dados.nome);
+                    iniciarSessao(dados.nome);
+                } else {
+                    alert(dados.erro || "E-mail ou senha incorretos.");
+                }
+            } catch {
+                alert("Erro de conexão ao fazer login.");
+            }
+        }
+
+        function iniciarSessao(nome) {
+            document.getElementById("authBox").style.display = "none";
+            document.getElementById("gameBox").style.display = "flex";
+            document.getElementById("userLogado").innerText = `🎮 Jogador: ${nome}`;
+            buscarRanking();
+        }
+
+        // Desafio Hacker: Botão de Sair (Logout)
+        function fazerLogout() {
+            localStorage.removeItem('token_saas');
+            localStorage.removeItem('nome_saas');
+            window.location.reload(); // Recarrega a página de forma limpa para a tela de Login
+        }
 
         async function enviarMensagem() {
             const input = document.getElementById("pergunta");
             const historico = document.getElementById("historico");
             const texto = input.value;
+            const token = localStorage.getItem('token_saas');
 
-            if(!texto) return;
+            if(!texto || !token) return;
 
-            // 1. Mostra a mensagem do usuário na tela
             historico.innerHTML += `<div class="mensagem user">${texto}</div>`;
             input.value = "";
-            historico.innerHTML += `<div class="mensagem bot" id="loading">Pensando...</div>`;
+            historico.innerHTML += `<div class="mensagem bot" id="loading">Pensando resposta...</div>`;
             historico.scrollTop = historico.scrollHeight;
 
             try {
-                // 2. Faz o Fetch (POST) para a SUA API na Nuvem
-                const resposta = await fetch(URL_BACKEND, {
+                // Enviar requisição protegida contendo o cabeçalho Authorization Bearer
+                const resposta = await fetch(`${URL_BASE}/api/chat`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
                     body: JSON.stringify({ pergunta: texto })
                 });
 
                 const dados = await resposta.json();
-
-                // 3. Remove o "Pensando..."
                 document.getElementById("loading").remove();
 
-                // CONVERTE A RESPOSTA COM MARKDOWN PARA HTML (Fase 3)
                 const respostaFormatada = marked.parse(dados.resposta);
                 historico.innerHTML += `<div class="mensagem bot">${respostaFormatada}</div>`;
                 
-                // Rola o chat para baixo
+                // Estourar confete ao acertar enigma
+                const textoLower = dados.resposta.toLowerCase();
+                if (textoLower.includes("acertou") || textoLower.includes("parabéns") || textoLower.includes("parabens")) {
+                    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+                }
+
                 historico.scrollTop = historico.scrollHeight;
+                buscarRanking();
 
             } catch (erro) {
                 document.getElementById("loading").innerHTML = "Erro de conexão com o Servidor ❌";
             }
         }
 
-        // Nova Função para apagar o histórico de mensagens (Fase 3)
+        async function buscarRanking() {
+            const rankingList = document.getElementById("rankingList");
+            const token = localStorage.getItem('token_saas');
+            if (!token) return;
+
+            try {
+                const resposta = await fetch(`${URL_BASE}/api/ranking`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const dados = await resposta.json();
+
+                rankingList.innerHTML = "";
+
+                dados.forEach((jogador, index) => {
+                    let medalha = "";
+                    if (index === 0) medalha = "🥇 ";
+                    else if (index === 1) medalha = "🥈 ";
+                    else if (index === 2) medalha = "🥉 ";
+
+                    rankingList.innerHTML += `
+                        <li class="ranking-item">
+                            <span>${medalha}<b>${index + 1}º</b> - ${jogador.nome}</span>
+                            <span style="color: #ffc107; font-weight: bold;">${jogador.xp} XP</span>
+                        </li>
+                    `;
+                });
+
+            } catch (erro) {
+                rankingList.innerHTML = `<li style="color: #dc3545; text-align: center;">Erro ao carregar o ranking ❌</li>`;
+            }
+        }
+
         async function limparConversa() {
             const historico = document.getElementById("historico");
-            
-            if(confirm("Deseja realmente limpar todo o histórico de conversas do MongoDB?")) {
+            const token = localStorage.getItem('token_saas');
+            if (!token) return;
+
+            if(confirm("Deseja limpar as mensagens locais e o histórico?")) {
                 try {
-                    // Faz uma requisição DELETE para apagar o banco
-                    const resposta = await fetch(`${URL_BACKEND}/limpar`, {
-                        method: "DELETE"
+                    const resposta = await fetch(`${URL_BASE}/api/chat/limpar`, { 
+                        method: "DELETE",
+                        headers: { "Authorization": `Bearer ${token}` }
                     });
-                    
                     const resultado = await resposta.json();
-                    
                     if(resultado.sucesso) {
-                        historico.innerHTML = `<div class="mensagem bot" style="font-style: italic; color: #777;">Conversa resetada com sucesso!</div>`;
-                    } else {
-                        alert("Erro ao limpar dados no servidor.");
+                        historico.innerHTML = `<div class="mensagem bot" style="font-style: italic; color: #ffc107;">Memória limpa. Digite uma mensagem para recomeçar o jogo!</div>`;
                     }
                 } catch (erro) {
-                    alert("Erro de conexão ao tentar limpar a conversa.");
+                    alert("Erro ao tentar limpar o histórico do servidor.");
                 }
             }
         }
