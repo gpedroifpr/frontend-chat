@@ -2,23 +2,25 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Enigma Master - SaaS Seguro</title>
-    <!-- Marked.js para ler Markdown das respostas -->
+    <title>Enigma Master - Multimodal</title>
+    <!-- Marked.js para ler Markdown -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Canvas-Confetti para animações (Desafio Hacker) -->
+    <!-- Canvas-Confetti para animações -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background-color: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: #fff; }
-        .game-wrapper { display: flex; gap: 20px; max-width: 900px; width: 100%; padding: 20px; }
+        .game-wrapper { display: flex; gap: 20px; max-width: 950px; width: 100%; padding: 20px; box-sizing: border-box; }
         .chat-container { background: #161233; flex: 1.5; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         .ranking-container { background: #161233; flex: 1; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
         .auth-container { background: #161233; padding: 30px; border-radius: 10px; width: 350px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: center; }
-        .historico { height: 300px; overflow-y: auto; background: #0f0c24; padding: 10px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #332a63; }
-        .mensagem { margin-bottom: 10px; padding: 8px; border-radius: 5px; line-height: 1.4; }
+        .historico { height: 320px; overflow-y: auto; background: #0f0c24; padding: 10px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #332a63; }
+        .mensagem { margin-bottom: 10px; padding: 8px; border-radius: 5px; line-height: 1.4; word-wrap: break-word; }
         .user { background: #007bff; color: white; text-align: right; margin-left: 20%; }
         .bot { background: #2a2456; color: #fff; text-align: left; margin-right: 20%; border: 1px solid #483d8b; }
-        .controles { display: flex; gap: 5px; margin-top: 10px; }
-        input { width: 100%; padding: 10px; border: 1px solid #332a63; border-radius: 5px; background: #0f0c24; color: #fff; box-sizing: border-box; margin-bottom: 10px; }
+        .controles { display: flex; flex-direction: column; gap: 10px; }
+        .input-linha { display: flex; gap: 5px; }
+        input { padding: 10px; border: 1px solid #332a63; border-radius: 5px; background: #0f0c24; color: #fff; }
+        .input-text { flex: 1; }
         button { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .btn-enviar { background: #28a745; color: white; }
         .btn-limpar { background: #dc3545; color: white; width: 100%; margin-top: 10px; }
@@ -28,25 +30,29 @@
         .ranking-item { padding: 8px; border-bottom: 1px solid #332a63; display: flex; justify-content: space-between; font-size: 0.9em; }
         .user-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: #0f0c24; padding: 10px; border-radius: 5px; border: 1px solid #332a63; }
         .toggle-auth { color: #ffc107; cursor: pointer; text-decoration: underline; font-size: 0.9em; margin-top: 15px; display: inline-block; }
+        .upload-secao { display: flex; align-items: center; gap: 10px; background: #0f0c24; padding: 5px; border-radius: 5px; border: 1px solid #332a63; }
+        .upload-secao input[type="file"] { font-size: 0.8em; color: #ccc; }
+        #previewContainer { display: none; margin-bottom: 10px; }
+        #imgPreview { max-height: 80px; border-radius: 5px; border: 1px solid #332a63; }
     </style>
 </head>
 <body>
 
-    <!-- FASE 6: TELA DE LOGIN / CADASTRO -->
+    <!-- TELA DE LOGIN / CADASTRO -->
     <div class="auth-container" id="authBox">
         <h2 id="authTitle">🔮 Enigma SaaS</h2>
         
         <div id="loginForm">
-            <input type="text" id="loginEmail" placeholder="Seu e-mail...">
-            <input type="password" id="loginSenha" placeholder="Sua senha...">
+            <input type="text" id="loginEmail" placeholder="Seu e-mail..." style="margin-bottom: 10px;">
+            <input type="password" id="loginSenha" placeholder="Sua senha..." style="margin-bottom: 10px;">
             <button onclick="fazerLogin()" style="background: #28a745; color: white; width: 100%;">Entrar</button>
             <span class="toggle-auth" onclick="toggleAuth(false)">Não tem cadastro? Crie uma conta aqui</span>
         </div>
 
         <div id="registerForm" style="display: none;">
-            <input type="text" id="regNome" placeholder="Seu nome ou apelido...">
-            <input type="text" id="regEmail" placeholder="Seu e-mail...">
-            <input type="password" id="regSenha" placeholder="Escolha uma senha...">
+            <input type="text" id="regNome" placeholder="Seu nome ou apelido..." style="margin-bottom: 10px;">
+            <input type="text" id="regEmail" placeholder="Seu e-mail..." style="margin-bottom: 10px;">
+            <input type="password" id="regSenha" placeholder="Escolha uma senha..." style="margin-bottom: 10px;">
             <button onclick="fazerCadastro()" style="background: #ffc107; color: #111; width: 100%;">Cadastrar Conta</button>
             <span class="toggle-auth" onclick="toggleAuth(true)">Já tem conta? Faça Login</span>
         </div>
@@ -57,21 +63,32 @@
         <div class="chat-container">
             <div class="user-header">
                 <span id="userLogado" style="color: #ffc107; font-weight: bold;"></span>
-                <!-- Desafio Hacker: Botão Sair -->
                 <button class="btn-logout" onclick="fazerLogout()">Sair (Logout)</button>
             </div>
 
             <div class="historico" id="historico">
-                <div class="mensagem bot">Bem-vindo ao Cofre! Pergunte algo para mim ou peça para começar as charadas!</div>
+                <div class="mensagem bot">Carregando mensagens...</div>
+            </div>
+
+            <div id="previewContainer">
+                <img id="imgPreview" src="" alt="Preview">
+                <button onclick="removerAnexo()" style="background: #dc3545; color: white; padding: 2px 8px; font-size: 0.7em;">Remover</button>
             </div>
             
             <div class="controles">
-                <input type="text" id="pergunta" placeholder="Escreva sua resposta ou pergunta...">
-                <button class="btn-enviar" onclick="enviarMensagem()">Enviar</button>
+                <div class="upload-secao">
+                    <span>📷</span>
+                    <input type="file" id="imagemUpload" accept="image/*" onchange="mostrarPreview()">
+                </div>
+                <div class="input-linha">
+                    <input type="text" id="pergunta" class="input-text" placeholder="Escreva sua resposta, pergunta ou anexe uma imagem...">
+                    <button class="btn-enviar" onclick="enviarMensagem()">Enviar</button>
+                </div>
             </div>
             <button class="btn-limpar" onclick="limparConversa()">🗑️ Limpar Conversa</button>
         </div>
 
+        <!-- TABELA DE RANKING -->
         <div class="ranking-container">
             <h3>🏆 Leaderboard Global</h3>
             <button class="btn-ranking" onclick="buscarRanking()">🔄 Atualizar Classificação</button>
@@ -85,12 +102,12 @@
 
     <script>
         const URL_BASE = "https://agente-de-ia-postman.onrender.com";
-        
-        // Desafio Hacker: Persistência de Login ao carregar a página (F5)
+        const URL_BACKEND = `${URL_BASE}/api/chat`;
+        let nicknameLogado = "";
+
         window.onload = function() {
             const token = localStorage.getItem('token_saas');
             const nome = localStorage.getItem('nome_saas');
-            
             if (token && nome) {
                 iniciarSessao(nome);
             }
@@ -100,6 +117,27 @@
             document.getElementById("authTitle").innerText = showLogin ? "🔮 Enigma SaaS" : "✍️ Criar Conta";
             document.getElementById("loginForm").style.display = showLogin ? "block" : "none";
             document.getElementById("registerForm").style.display = showLogin ? "none" : "block";
+        }
+
+        function mostrarPreview() {
+            const upload = document.getElementById("imagemUpload");
+            const preview = document.getElementById("imgPreview");
+            const container = document.getElementById("previewContainer");
+            const file = upload.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    container.style.display = "block";
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removerAnexo() {
+            document.getElementById("imagemUpload").value = "";
+            document.getElementById("previewContainer").style.display = "none";
         }
 
         async function fazerCadastro() {
@@ -116,9 +154,8 @@
                     body: JSON.stringify({ nome, email, senha })
                 });
                 const dados = await resposta.json();
-                
                 if (dados.sucesso) {
-                    alert("Cadastro efetuado! Faça o login para começar.");
+                    alert("Cadastro concluído! Faça o login para começar.");
                     toggleAuth(true);
                 } else {
                     alert(dados.erro || "Erro ao cadastrar.");
@@ -143,7 +180,6 @@
                 const dados = await resposta.json();
 
                 if (dados.sucesso) {
-                    // Guardar Crachá (Token) no navegador
                     localStorage.setItem('token_saas', dados.token);
                     localStorage.setItem('nome_saas', dados.nome);
                     iniciarSessao(dados.nome);
@@ -159,47 +195,106 @@
             document.getElementById("authBox").style.display = "none";
             document.getElementById("gameBox").style.display = "flex";
             document.getElementById("userLogado").innerText = `🎮 Jogador: ${nome}`;
+            carregarHistorico();
             buscarRanking();
         }
 
-        // Desafio Hacker: Botão de Sair (Logout)
         function fazerLogout() {
             localStorage.removeItem('token_saas');
             localStorage.removeItem('nome_saas');
-            window.location.reload(); // Recarrega a página de forma limpa para a tela de Login
+            window.location.reload();
+        }
+
+        // Histórico Rico do Banco de Dados (Fase 5)
+        async function carregarHistorico() {
+            const historicoDiv = document.getElementById("historico");
+            const token = localStorage.getItem('token_saas');
+            if (!token) return;
+
+            try {
+                const resposta = await fetch(`${URL_BACKEND}/historico`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const dados = await resposta.json();
+
+                historicoDiv.innerHTML = "";
+                dados.forEach(msg => {
+                    const classe = msg.remetente === 'usuario' ? 'user' : 'bot';
+                    let conteudo = marked.parse(msg.texto);
+
+                    // Se a mensagem contém URL de imagem, renderiza ela no chat
+                    if (msg.imagemUrl) {
+                        conteudo += `<br><img src="${msg.imagemUrl}" style="max-width: 100%; max-height: 150px; border-radius: 5px; margin-top: 5px; border: 1px solid #332a63;">`;
+                    }
+
+                    historicoDiv.innerHTML += `<div class="mensagem ${classe}">${conteudo}</div>`;
+                });
+                historicoDiv.scrollTop = historicoDiv.scrollHeight;
+            } catch (erro) {
+                console.error("Erro ao carregar histórico:", erro);
+            }
         }
 
         async function enviarMensagem() {
             const input = document.getElementById("pergunta");
             const historico = document.getElementById("historico");
+            const inputImagem = document.getElementById("imagemUpload");
+            
             const texto = input.value;
+            const arquivo = inputImagem.files[0];
             const token = localStorage.getItem('token_saas');
 
-            if(!texto || !token) return;
+            if((!texto && !arquivo) || !token) return;
 
-            historico.innerHTML += `<div class="mensagem user">${texto}</div>`;
+            // Mostra o que o usuário enviou localmente primeiro
+            let conteudoUsuario = texto;
+            historico.innerHTML += `<div class="mensagem user">${conteudoUsuario}</div>`;
+            
             input.value = "";
-            historico.innerHTML += `<div class="mensagem bot" id="loading">Pensando resposta...</div>`;
+            removerAnexo();
+
+            historico.innerHTML += `<div class="mensagem bot" id="loading">Analisando dados...</div>`;
             historico.scrollTop = historico.scrollHeight;
 
             try {
-                // Enviar requisição protegida contendo o cabeçalho Authorization Bearer
-                const resposta = await fetch(`${URL_BASE}/api/chat`, {
-                    method: "POST",
-                    headers: { 
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ pergunta: texto })
-                });
+                let resposta;
+                
+                // MULTIPART/FORM-DATA quando há imagem anexa (Fase 4)
+                if (arquivo) {
+                    const formData = new FormData();
+                    formData.append("pergunta", texto);
+                    formData.append("imagem", arquivo);
+
+                    resposta = await fetch(`${URL_BACKEND}/vision`, {
+                        method: "POST",
+                        headers: { "Authorization": `Bearer ${token}` }, // Browser cuida do Content-Type do FormData
+                        body: formData
+                    });
+                } else {
+                    // JSON normal se for apenas texto
+                    resposta = await fetch(URL_BACKEND, {
+                        method: "POST",
+                        headers: { 
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ pergunta: texto })
+                    });
+                }
 
                 const dados = await resposta.json();
                 document.getElementById("loading").remove();
 
+                if (!resposta.ok) {
+                    alert(dados.erro || "Ocorreu um erro no servidor.");
+                    return;
+                }
+
+                // Renderiza resposta com formatação
                 const respostaFormatada = marked.parse(dados.resposta);
                 historico.innerHTML += `<div class="mensagem bot">${respostaFormatada}</div>`;
                 
-                // Estourar confete ao acertar enigma
+                // Desafio Hacker: Animação de Confete
                 const textoLower = dados.resposta.toLowerCase();
                 if (textoLower.includes("acertou") || textoLower.includes("parabéns") || textoLower.includes("parabens")) {
                     confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
@@ -252,7 +347,7 @@
 
             if(confirm("Deseja limpar as mensagens locais e o histórico?")) {
                 try {
-                    const resposta = await fetch(`${URL_BASE}/api/chat/limpar`, { 
+                    const resposta = await fetch(`${URL_BACKEND}/limpar`, { 
                         method: "DELETE",
                         headers: { "Authorization": `Bearer ${token}` }
                     });
