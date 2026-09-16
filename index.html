@@ -2,10 +2,8 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Enigma Master - Multimodal</title>
-    <!-- Marked.js para ler Markdown -->
+    <title>Enigma Master - Check-up Cloud</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Canvas-Confetti para animações -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background-color: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: #fff; }
@@ -34,6 +32,9 @@
         .upload-secao input[type="file"] { font-size: 0.8em; color: #ccc; }
         #previewContainer { display: none; margin-bottom: 10px; }
         #imgPreview { max-height: 80px; border-radius: 5px; border: 1px solid #332a63; }
+        /* Estilo do indicador de Health Check (Fase 1) */
+        .health-badge { display: flex; align-items: center; gap: 8px; font-size: 0.8em; margin-bottom: 12px; color: #aaa; background: #0f0c24; padding: 6px 10px; border-radius: 5px; border: 1px solid #332a63; }
+        .dot { height: 9px; width: 9px; background-color: #777; border-radius: 50%; display: inline-block; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
@@ -41,18 +42,16 @@
     <!-- TELA DE LOGIN / CADASTRO -->
     <div class="auth-container" id="authBox">
         <h2 id="authTitle">🔮 Enigma SaaS</h2>
-        
         <div id="loginForm">
-            <input type="text" id="loginEmail" placeholder="Seu e-mail..." style="margin-bottom: 10px;">
-            <input type="password" id="loginSenha" placeholder="Sua senha..." style="margin-bottom: 10px;">
+            <input type="text" id="loginEmail" placeholder="Seu e-mail..." style="width: 100%; box-sizing: border-box; margin-bottom: 10px;">
+            <input type="password" id="loginSenha" placeholder="Sua senha..." style="width: 100%; box-sizing: border-box; margin-bottom: 10px;">
             <button onclick="fazerLogin()" style="background: #28a745; color: white; width: 100%;">Entrar</button>
             <span class="toggle-auth" onclick="toggleAuth(false)">Não tem cadastro? Crie uma conta aqui</span>
         </div>
-
         <div id="registerForm" style="display: none;">
-            <input type="text" id="regNome" placeholder="Seu nome ou apelido..." style="margin-bottom: 10px;">
-            <input type="text" id="regEmail" placeholder="Seu e-mail..." style="margin-bottom: 10px;">
-            <input type="password" id="regSenha" placeholder="Escolha uma senha..." style="margin-bottom: 10px;">
+            <input type="text" id="regNome" placeholder="Seu nome ou apelido..." style="width: 100%; box-sizing: border-box; margin-bottom: 10px;">
+            <input type="text" id="regEmail" placeholder="Seu e-mail..." style="width: 100%; box-sizing: border-box; margin-bottom: 10px;">
+            <input type="password" id="regSenha" placeholder="Escolha uma senha..." style="width: 100%; box-sizing: border-box; margin-bottom: 10px;">
             <button onclick="fazerCadastro()" style="background: #ffc107; color: #111; width: 100%;">Cadastrar Conta</button>
             <span class="toggle-auth" onclick="toggleAuth(true)">Já tem conta? Faça Login</span>
         </div>
@@ -61,6 +60,12 @@
     <!-- TELA PRINCIPAL DO JOGO -->
     <div class="game-wrapper" id="gameBox" style="display: none;">
         <div class="chat-container">
+            <!-- Indicador Health Check (Fase 1) -->
+            <div class="health-badge">
+                <span class="dot" id="statusDot"></span>
+                <span id="statusText">Verificando saúde da API...</span>
+            </div>
+
             <div class="user-header">
                 <span id="userLogado" style="color: #ffc107; font-weight: bold;"></span>
                 <button class="btn-logout" onclick="fazerLogout()">Sair (Logout)</button>
@@ -81,7 +86,7 @@
                     <input type="file" id="imagemUpload" accept="image/*" onchange="mostrarPreview()">
                 </div>
                 <div class="input-linha">
-                    <input type="text" id="pergunta" class="input-text" placeholder="Escreva sua resposta, pergunta ou anexe uma imagem...">
+                    <input type="text" id="pergunta" class="input-text" placeholder="Escreva sua resposta ou anexe uma imagem...">
                     <button class="btn-enviar" onclick="enviarMensagem()">Enviar</button>
                 </div>
             </div>
@@ -103,15 +108,35 @@
     <script>
         const URL_BASE = "https://agente-de-ia-postman.onrender.com";
         const URL_BACKEND = `${URL_BASE}/api/chat`;
-        let nicknameLogado = "";
 
         window.onload = function() {
+            testarHealthCheck(); // Testa a saúde da API assim que abre
             const token = localStorage.getItem('token_saas');
             const nome = localStorage.getItem('nome_saas');
             if (token && nome) {
                 iniciarSessao(nome);
             }
         };
+
+        // Fase 1: Função que testa a rota pública /api/health
+        async function testarHealthCheck() {
+            const dot = document.getElementById("statusDot");
+            const text = document.getElementById("statusText");
+            try {
+                const res = await fetch(`${URL_BASE}/api/health`);
+                const data = await res.json();
+                if (res.ok && data.status === "ok") {
+                    dot.style.backgroundColor = "#28a745"; // Verde
+                    text.innerText = "Sistema Operacional (DB Conectado) 🟢";
+                } else {
+                    dot.style.backgroundColor = "#dc3545"; // Vermelho
+                    text.innerText = "API com instabilidade 🔴";
+                }
+            } catch (e) {
+                dot.style.backgroundColor = "#dc3545"; // Vermelho
+                text.innerText = "Servidor Offline 🔴";
+            }
+        }
 
         function toggleAuth(showLogin) {
             document.getElementById("authTitle").innerText = showLogin ? "🔮 Enigma SaaS" : "✍️ Criar Conta";
@@ -124,7 +149,6 @@
             const preview = document.getElementById("imgPreview");
             const container = document.getElementById("previewContainer");
             const file = upload.files[0];
-
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -144,9 +168,7 @@
             const nome = document.getElementById("regNome").value.trim();
             const email = document.getElementById("regEmail").value.trim();
             const senha = document.getElementById("regSenha").value.trim();
-
             if (!nome || !email || !senha) return alert("Preencha todos os campos!");
-
             try {
                 const resposta = await fetch(`${URL_BASE}/api/auth/register`, {
                     method: "POST",
@@ -155,22 +177,18 @@
                 });
                 const dados = await resposta.json();
                 if (dados.sucesso) {
-                    alert("Cadastro concluído! Faça o login para começar.");
+                    alert("Cadastro concluído! Faça o login.");
                     toggleAuth(true);
                 } else {
                     alert(dados.erro || "Erro ao cadastrar.");
                 }
-            } catch {
-                alert("Erro de conexão ao cadastrar.");
-            }
+            } catch { alert("Erro de conexão ao cadastrar."); }
         }
 
         async function fazerLogin() {
             const email = document.getElementById("loginEmail").value.trim();
             const senha = document.getElementById("loginSenha").value.trim();
-
             if (!email || !senha) return alert("Preencha todos os campos!");
-
             try {
                 const resposta = await fetch(`${URL_BASE}/api/auth/login`, {
                     method: "POST",
@@ -178,7 +196,6 @@
                     body: JSON.stringify({ email, senha })
                 });
                 const dados = await resposta.json();
-
                 if (dados.sucesso) {
                     localStorage.setItem('token_saas', dados.token);
                     localStorage.setItem('nome_saas', dados.nome);
@@ -186,9 +203,7 @@
                 } else {
                     alert(dados.erro || "E-mail ou senha incorretos.");
                 }
-            } catch {
-                alert("Erro de conexão ao fazer login.");
-            }
+            } catch { alert("Erro de conexão ao fazer login."); }
         }
 
         function iniciarSessao(nome) {
@@ -205,73 +220,56 @@
             window.location.reload();
         }
 
-        // Histórico Rico do Banco de Dados (Fase 5)
         async function carregarHistorico() {
             const historicoDiv = document.getElementById("historico");
             const token = localStorage.getItem('token_saas');
             if (!token) return;
-
             try {
                 const resposta = await fetch(`${URL_BACKEND}/historico`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 const dados = await resposta.json();
-
                 historicoDiv.innerHTML = "";
                 dados.forEach(msg => {
                     const classe = msg.remetente === 'usuario' ? 'user' : 'bot';
                     let conteudo = marked.parse(msg.texto);
-
-                    // Se a mensagem contém URL de imagem, renderiza ela no chat
                     if (msg.imagemUrl) {
                         conteudo += `<br><img src="${msg.imagemUrl}" style="max-width: 100%; max-height: 150px; border-radius: 5px; margin-top: 5px; border: 1px solid #332a63;">`;
                     }
-
                     historicoDiv.innerHTML += `<div class="mensagem ${classe}">${conteudo}</div>`;
                 });
                 historicoDiv.scrollTop = historicoDiv.scrollHeight;
-            } catch (erro) {
-                console.error("Erro ao carregar histórico:", erro);
-            }
+            } catch (erro) { console.error("Erro ao carregar histórico:", erro); }
         }
 
         async function enviarMensagem() {
             const input = document.getElementById("pergunta");
             const historico = document.getElementById("historico");
             const inputImagem = document.getElementById("imagemUpload");
-            
             const texto = input.value;
             const arquivo = inputImagem.files[0];
             const token = localStorage.getItem('token_saas');
 
             if((!texto && !arquivo) || !token) return;
 
-            // Mostra o que o usuário enviou localmente primeiro
-            let conteudoUsuario = texto;
-            historico.innerHTML += `<div class="mensagem user">${conteudoUsuario}</div>`;
-            
+            historico.innerHTML += `<div class="mensagem user">${texto || "[Imagem enviada]"}</div>`;
             input.value = "";
             removerAnexo();
-
             historico.innerHTML += `<div class="mensagem bot" id="loading">Analisando dados...</div>`;
             historico.scrollTop = historico.scrollHeight;
 
             try {
                 let resposta;
-                
-                // MULTIPART/FORM-DATA quando há imagem anexa (Fase 4)
                 if (arquivo) {
                     const formData = new FormData();
-                    formData.append("pergunta", texto);
+                    formData.append("pergunta", texto || "Analise esta imagem.");
                     formData.append("imagem", arquivo);
-
                     resposta = await fetch(`${URL_BACKEND}/vision`, {
                         method: "POST",
-                        headers: { "Authorization": `Bearer ${token}` }, // Browser cuida do Content-Type do FormData
+                        headers: { "Authorization": `Bearer ${token}` },
                         body: formData
                     });
                 } else {
-                    // JSON normal se for apenas texto
                     resposta = await fetch(URL_BACKEND, {
                         method: "POST",
                         headers: { 
@@ -290,11 +288,9 @@
                     return;
                 }
 
-                // Renderiza resposta com formatação
                 const respostaFormatada = marked.parse(dados.resposta);
                 historico.innerHTML += `<div class="mensagem bot">${respostaFormatada}</div>`;
                 
-                // Desafio Hacker: Animação de Confete
                 const textoLower = dados.resposta.toLowerCase();
                 if (textoLower.includes("acertou") || textoLower.includes("parabéns") || textoLower.includes("parabens")) {
                     confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
@@ -302,7 +298,6 @@
 
                 historico.scrollTop = historico.scrollHeight;
                 buscarRanking();
-
             } catch (erro) {
                 document.getElementById("loading").innerHTML = "Erro de conexão com o Servidor ❌";
             }
@@ -312,21 +307,14 @@
             const rankingList = document.getElementById("rankingList");
             const token = localStorage.getItem('token_saas');
             if (!token) return;
-
             try {
                 const resposta = await fetch(`${URL_BASE}/api/ranking`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 const dados = await resposta.json();
-
                 rankingList.innerHTML = "";
-
                 dados.forEach((jogador, index) => {
-                    let medalha = "";
-                    if (index === 0) medalha = "🥇 ";
-                    else if (index === 1) medalha = "🥈 ";
-                    else if (index === 2) medalha = "🥉 ";
-
+                    let medalha = index === 0 ? "🥇 " : index === 1 ? "🥈 " : index === 2 ? "🥉 " : "";
                     rankingList.innerHTML += `
                         <li class="ranking-item">
                             <span>${medalha}<b>${index + 1}º</b> - ${jogador.nome}</span>
@@ -334,7 +322,6 @@
                         </li>
                     `;
                 });
-
             } catch (erro) {
                 rankingList.innerHTML = `<li style="color: #dc3545; text-align: center;">Erro ao carregar o ranking ❌</li>`;
             }
@@ -344,7 +331,6 @@
             const historico = document.getElementById("historico");
             const token = localStorage.getItem('token_saas');
             if (!token) return;
-
             if(confirm("Deseja limpar as mensagens locais e o histórico?")) {
                 try {
                     const resposta = await fetch(`${URL_BACKEND}/limpar`, { 
