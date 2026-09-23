@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Enigma Master - RAG & Multimodal SaaS</title>
-    <!-- Marked.js para ler Markdown das respostas -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Canvas-Confetti para animações -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background-color: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: #fff; }
@@ -40,7 +38,6 @@
 </head>
 <body>
 
-    <!-- TELA DE LOGIN / CADASTRO -->
     <div class="auth-container" id="authBox">
         <h2 id="authTitle">🔮 Enigma SaaS</h2>
         <div id="loginForm">
@@ -58,10 +55,8 @@
         </div>
     </div>
 
-    <!-- TELA PRINCIPAL DO JOGO E RAG -->
     <div class="game-wrapper" id="gameBox" style="display: none;">
         <div class="chat-container">
-            <!-- Health Badge -->
             <div class="health-badge">
                 <span class="dot" id="statusDot"></span>
                 <span id="statusText">Verificando saúde da API...</span>
@@ -82,12 +77,10 @@
             </div>
             
             <div class="controles">
-                <!-- Upload de Imagem (Multimodal) -->
                 <div class="upload-secao">
                     <span>📷 Imagem:</span>
                     <input type="file" id="imagemUpload" accept="image/*" onchange="mostrarPreview()">
                 </div>
-                <!-- Upload de Documento (RAG) -->
                 <div class="upload-secao">
                     <span>📄 Documento (PDF/TXT):</span>
                     <input type="file" id="docUpload" accept=".pdf, .txt">
@@ -100,7 +93,6 @@
             <button class="btn-limpar" onclick="limparConversa()">🗑️ Limpar Conversa</button>
         </div>
 
-        <!-- LEADERBOARD GLOBAL -->
         <div class="ranking-container">
             <h3>🏆 Leaderboard Global</h3>
             <button class="btn-ranking" onclick="buscarRanking()">🔄 Atualizar Classificação</button>
@@ -336,6 +328,12 @@
                 });
                 const dados = await resposta.json();
                 rankingList.innerHTML = "";
+
+                if (dados.length === 0) {
+                    rankingList.innerHTML = `<li style="color: #777; font-style: italic; text-align: center; padding: 10px;">Nenhum herói no ranking ainda.</li>`;
+                    return;
+                }
+
                 dados.forEach((jogador, index) => {
                     let medalha = index === 0 ? "🥇 " : index === 1 ? "🥈 " : index === 2 ? "🥉 " : "";
                     rankingList.innerHTML += `
