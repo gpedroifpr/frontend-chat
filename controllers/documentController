@@ -1,0 +1,62 @@
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const pdfParse = require("pdf-parse");
+
+const apiKey = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey);
+
+const processarDocumento = async (req, res) => {
+    try {
+        const { pergunta } = req.body;
+        const arquivo = req.file;
+
+        if (!arquivo) {
+            return res.status(400).json({ erro: "Você precisa enviar um arquivo PDF ou TXT." });
+        }
+
+        if (!pergunta) {
+            return res.status(400).json({ erro: "Você precisa enviar uma pergunta sobre o documento." });
+        }
+
+        let textoExtraido = "";
+
+        // Extrai o texto dependendo do tipo do arquivo (Fase 2)
+        if (arquivo.mimetype === "application/pdf") {
+            const dadosPdf = await pdfParse(arquivo.buffer);
+            textoExtraido = dadosPdf.text;
+        } else if (arquivo.mimetype === "text/plain") {
+            textoExtraido = arquivo.buffer.toString("utf8");
+        } else {
+            return res.status(400).json({ erro: "Formato de arquivo não suportado. Envie apenas arquivos PDF ou TXT." });
+        }
+
+        // Engenharia de Prompt RAG Avançada (Fase 3)
+        const promptRAG = `
+Você é um analista de dados corporativo extremamente preciso.
+Abaixo está um documento de referência. Responda à pergunta do usuário baseando-se APENAS no texto fornecido.
+Se a resposta não estiver no texto, diga exatamente: "Desculpe, não encontrei essa informação no documento." NÃO INVENTE DADOS.
+
+DOCUMENTO:
+"""
+${textoExtraido}
+"""
+
+PERGUNTA DO USUÁRIO: ${pergunta}
+`;
+
+        // Inicializa o Gemini com modelo estável
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const result = await model.generateContent(promptRAG);
+        const respostaDaIA = result.response.text();
+
+        return res.status(200).json({
+            sucesso: true,
+            resposta: respostaDaIA
+        });
+
+    } catch (erro) {
+        console.error("❌ Erro no processamento de RAG:", erro);
+        return res.status(500).json({ erro: "Erro interno no servidor ao processar o documento." });
+    }
+};
+
+module.exports = { processarDocumento };
