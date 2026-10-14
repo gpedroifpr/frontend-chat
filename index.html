@@ -2,9 +2,13 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Enigma Master - RAG & Multimodal SaaS</title>
+    <title>Enigma Master - Sala em Tempo Real (WebSocket)</title>
+    <!-- Marked.js para ler Markdown das respostas -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Canvas-Confetti para animações -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Script do Cliente Socket.io (Sprint 7) -->
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background-color: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: #fff; }
         .game-wrapper { display: flex; gap: 20px; max-width: 950px; width: 100%; padding: 20px; box-sizing: border-box; }
@@ -38,6 +42,7 @@
 </head>
 <body>
 
+    <!-- TELA DE LOGIN / CADASTRO -->
     <div class="auth-container" id="authBox">
         <h2 id="authTitle">🔮 Enigma SaaS</h2>
         <div id="loginForm">
@@ -55,8 +60,10 @@
         </div>
     </div>
 
+    <!-- TELA PRINCIPAL DO JOGO E WEBSOCKET -->
     <div class="game-wrapper" id="gameBox" style="display: none;">
         <div class="chat-container">
+            <!-- Health Badge -->
             <div class="health-badge">
                 <span class="dot" id="statusDot"></span>
                 <span id="statusText">Verificando saúde da API...</span>
@@ -68,7 +75,7 @@
             </div>
 
             <div class="historico" id="historico">
-                <div class="mensagem bot">Carregando histórico...</div>
+                <div class="mensagem bot">Conectando à sala em tempo real...</div>
             </div>
 
             <div id="previewContainer">
@@ -86,7 +93,7 @@
                     <input type="file" id="docUpload" accept=".pdf, .txt">
                 </div>
                 <div class="input-linha">
-                    <input type="text" id="pergunta" class="input-text" placeholder="Escreva sua pergunta ou comando...">
+                    <input type="text" id="pergunta" class="input-text" placeholder="Escreva no chat ou digite @gemini...">
                     <button class="btn-enviar" onclick="enviarMensagem()">Enviar</button>
                 </div>
             </div>
@@ -107,6 +114,7 @@
     <script>
         const URL_BASE = "https://agente-de-ia-postman.onrender.com";
         const URL_BACKEND = `${URL_BASE}/api/chat`;
+        let socket; // Variável global para o WebSocket
 
         window.onload = function() {
             testarHealthCheck();
@@ -204,17 +212,48 @@
             } catch { alert("Erro de conexão ao fazer login."); }
         }
 
-        function iniciarSessao(nome) {
+        // =========================================================================
+        // INICIALIZAÇÃO DA SESSÃO E CONEXÃO WEBSOCKET (Sprint 7)
+        // =========================================================================
+        function iniciarSessao(nomeLogado) {
             document.getElementById("authBox").style.display = "none";
             document.getElementById("gameBox").style.display = "flex";
-            document.getElementById("userLogado").innerText = `🎮 Jogador: ${nome}`;
+            document.getElementById("userLogado").innerText = `🎮 Jogador: ${nomeLogado}`;
+            
             carregarHistorico();
             buscarRanking();
+
+            // Conecta ao WebSocket passando o Token JWT no auth handshake
+            const token = localStorage.getItem('token_saas');
+            socket = io(URL_BASE, {
+                auth: { token: token }
+            });
+
+            // Ouve as mensagens transmitidas pela sala em tempo real
+            socket.on('mensagemRecebida', (dados) => {
+                const historicoDiv = document.getElementById("historico");
+                let conteudo = marked.parse(dados.texto || "");
+                
+                // Define a classe CSS baseada no remetente
+                let classeCss = "bot";
+                if (dados.tipo === 'usuario') {
+                    conteudo = `<b>${dados.remetente}:</b><br>${conteudo}`;
+                    classeCss = dados.remetente === nomeLogado ? "user" : "bot";
+                } else {
+                    // Mensagem da IA (@gemini)
+                    conteudo = `<b>${dados.remetente}:</b><br>${conteudo}`;
+                    classeCss = "bot";
+                }
+
+                historicoDiv.innerHTML += `<div class="mensagem ${classeCss}">${conteudo}</div>`;
+                historicoDiv.scrollTop = historicoDiv.scrollHeight;
+            });
         }
 
         function fazerLogout() {
             localStorage.removeItem('token_saas');
             localStorage.removeItem('nome_saas');
+            if (socket) socket.disconnect();
             window.location.reload();
         }
 
@@ -229,92 +268,89 @@
                 const dados = await resposta.json();
                 historicoDiv.innerHTML = "";
                 dados.forEach(msg => {
+                    const nomeRemetente = msg.remetente === 'usuario' ? 'Você' : '🤖 Robô';
                     const classe = msg.remetente === 'usuario' ? 'user' : 'bot';
                     let conteudo = marked.parse(msg.texto || "");
                     if (msg.imagemUrl) {
                         conteudo += `<br><img src="${msg.imagemUrl}" style="max-width: 100%; max-height: 150px; border-radius: 5px; margin-top: 5px; border: 1px solid #332a63;">`;
                     }
-                    historicoDiv.innerHTML += `<div class="mensagem ${classe}">${conteudo}</div>`;
+                    historicoDiv.innerHTML += `<div class="mensagem ${classe}"><b>${nomeRemetente}:</b><br>${conteudo}</div>`;
                 });
                 historicoDiv.scrollTop = historicoDiv.scrollHeight;
             } catch (erro) { console.error("Erro ao carregar histórico:", erro); }
         }
 
+        // =========================================================================
+        // ENVIO DE MENSAGENS VIA WEBSOCKET (Texto) OU REST (Arquivos)
+        // =========================================================================
         async function enviarMensagem() {
             const input = document.getElementById("pergunta");
-            const historico = document.getElementById("historico");
             const inputImagem = document.getElementById("imagemUpload");
             const inputDoc = document.getElementById("docUpload");
             
-            const texto = input.value;
+            const texto = input.value.trim();
             const arquivoImagem = inputImagem.files[0];
             const arquivoDoc = inputDoc.files[0];
             const token = localStorage.getItem('token_saas');
 
             if((!texto && !arquivoImagem && !arquivoDoc) || !token) return;
 
-            historico.innerHTML += `<div class="mensagem user">${texto || "[Arquivo enviado]"}</div>`;
             input.value = "";
             removerAnexo();
             document.getElementById("docUpload").value = "";
 
-            historico.innerHTML += `<div class="mensagem bot" id="loading">Analisando e processando dados...</div>`;
-            historico.scrollTop = historico.scrollHeight;
-
             try {
-                let resposta;
-                
-                if (arquivoDoc) {
-                    const formData = new FormData();
-                    formData.append("pergunta", texto || "Resuma este documento.");
-                    formData.append("documento", arquivoDoc);
+                // Se for arquivo (PDF/TXT ou Imagem), mantém via REST FormData
+                if (arquivoDoc || arquivoImagem) {
+                    const historico = document.getElementById("historico");
+                    historico.innerHTML += `<div class="mensagem user"><b>Você:</b><br>${texto || "[Arquivo enviado]"}</div>`;
+                    historico.innerHTML += `<div class="mensagem bot" id="loading">Processando arquivo na nuvem...</div>`;
+                    historico.scrollTop = historico.scrollHeight;
 
-                    resposta = await fetch(`${URL_BASE}/api/chat/documento`, {
-                        method: "POST",
-                        headers: { "Authorization": `Bearer ${token}` },
-                        body: formData
-                    });
-                } else if (arquivoImagem) {
-                    const formData = new FormData();
-                    formData.append("pergunta", texto || "Analise esta imagem.");
-                    formData.append("imagem", arquivoImagem);
+                    let resposta;
+                    if (arquivoDoc) {
+                        const formData = new FormData();
+                        formData.append("pergunta", texto || "Resuma este documento.");
+                        formData.append("documento", arquivoDoc);
+                        resposta = await fetch(`${URL_BASE}/api/chat/documento`, {
+                            method: "POST",
+                            headers: { "Authorization": `Bearer ${token}` },
+                            body: formData
+                        });
+                    } else {
+                        const formData = new FormData();
+                        formData.append("pergunta", texto || "Analise esta imagem.");
+                        formData.append("imagem", arquivoImagem);
+                        resposta = await fetch(`${URL_BACKEND}/vision`, {
+                            method: "POST",
+                            headers: { "Authorization": `Bearer ${token}` },
+                            body: formData
+                        });
+                    }
 
-                    resposta = await fetch(`${URL_BACKEND}/vision`, {
-                        method: "POST",
-                        headers: { "Authorization": `Bearer ${token}` },
-                        body: formData
-                    });
-                } else {
-                    resposta = await fetch(URL_BACKEND, {
-                        method: "POST",
-                        headers: { 
-                            "Content-Type": "application/json",
-                            "Authorization": `Bearer ${token}`
-                        },
-                        body: JSON.stringify({ pergunta: texto })
-                    });
+                    const dados = await resposta.json();
+                    document.getElementById("loading").remove();
+
+                    if (!resposta.ok) {
+                        alert(dados.erro || "Ocorreu um erro no servidor.");
+                        return;
+                    }
+
+                    const respostaFormatada = marked.parse(dados.resposta);
+                    historico.innerHTML += `<div class="mensagem bot"><b>🤖 Robô:</b><br>${respostaFormatada}</div>`;
+                    historico.scrollTop = historico.scrollHeight;
+                    buscarRanking();
+                } 
+                else {
+                    // Chat normal por texto: Usa WebSocket em Tempo Real! (Sprint 7)
+                    if (socket && socket.connected) {
+                        socket.emit('novaMensagem', { texto: texto });
+                    } else {
+                        alert("Conexão em tempo real perdida. Recarregue a página.");
+                    }
                 }
-
-                const dados = await resposta.json();
-                document.getElementById("loading").remove();
-
-                if (!resposta.ok) {
-                    alert(dados.erro || "Ocorreu um erro no servidor.");
-                    return;
-                }
-
-                const respostaFormatada = marked.parse(dados.resposta);
-                historico.innerHTML += `<div class="mensagem bot">${respostaFormatada}</div>`;
-                
-                const textoLower = dados.resposta.toLowerCase();
-                if (textoLower.includes("acertou") || textoLower.includes("parabéns") || textoLower.includes("parabens")) {
-                    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-                }
-
-                historico.scrollTop = historico.scrollHeight;
-                buscarRanking();
             } catch (erro) {
-                document.getElementById("loading").innerHTML = "Erro de conexão com o Servidor ❌";
+                console.error("Erro ao enviar mensagem:", erro);
             }
         }
 
