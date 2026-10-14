@@ -2,12 +2,9 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Enigma Master - Sala em Tempo Real (WebSocket)</title>
-    <!-- Marked.js para ler Markdown das respostas -->
+    <title>Enigma Master - Tempo Real & Animações</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Canvas-Confetti para animações -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- Script do Cliente Socket.io (Sprint 7) -->
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background-color: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: #fff; }
@@ -38,11 +35,17 @@
         #imgPreview { max-height: 70px; border-radius: 5px; border: 1px solid #332a63; }
         .health-badge { display: flex; align-items: center; gap: 8px; font-size: 0.75em; margin-bottom: 8px; color: #aaa; background: #0f0c24; padding: 5px 8px; border-radius: 5px; border: 1px solid #332a63; }
         .dot { height: 8px; width: 8px; background-color: #777; border-radius: 50%; display: inline-block; }
+        
+        /* Animação de digitação (Bolinhas pulando) */
+        .typing-bubble { display: none; align-items: center; gap: 4px; padding: 10px 14px; background: #2a2456; border: 1px solid #483d8b; border-radius: 5px; width: fit-content; margin-bottom: 10px; }
+        .typing-dot { height: 6px; width: 6px; background-color: #bbb; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(2) { animation-delay: -0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: -0.4s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
     </style>
 </head>
 <body>
 
-    <!-- TELA DE LOGIN / CADASTRO -->
     <div class="auth-container" id="authBox">
         <h2 id="authTitle">🔮 Enigma SaaS</h2>
         <div id="loginForm">
@@ -60,10 +63,8 @@
         </div>
     </div>
 
-    <!-- TELA PRINCIPAL DO JOGO E WEBSOCKET -->
     <div class="game-wrapper" id="gameBox" style="display: none;">
         <div class="chat-container">
-            <!-- Health Badge -->
             <div class="health-badge">
                 <span class="dot" id="statusDot"></span>
                 <span id="statusText">Verificando saúde da API...</span>
@@ -76,6 +77,14 @@
 
             <div class="historico" id="historico">
                 <div class="mensagem bot">Conectando à sala em tempo real...</div>
+            </div>
+
+            <!-- Animação de Digitando da IA -->
+            <div class="typing-bubble" id="typingIndicator">
+                <span style="font-size: 0.8em; color: #ccc; margin-right: 4px;">Moderador Gemini está digitando</span>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
             </div>
 
             <div id="previewContainer">
@@ -93,7 +102,7 @@
                     <input type="file" id="docUpload" accept=".pdf, .txt">
                 </div>
                 <div class="input-linha">
-                    <input type="text" id="pergunta" class="input-text" placeholder="Escreva no chat ou digite @gemini...">
+                    <input type="text" id="pergunta" class="input-text" placeholder="Digite no chat ou digite @gemini...">
                     <button class="btn-enviar" onclick="enviarMensagem()">Enviar</button>
                 </div>
             </div>
@@ -114,7 +123,7 @@
     <script>
         const URL_BASE = "https://agente-de-ia-postman.onrender.com";
         const URL_BACKEND = `${URL_BASE}/api/chat`;
-        let socket; // Variável global para o WebSocket
+        let socket;
 
         window.onload = function() {
             testarHealthCheck();
@@ -212,9 +221,6 @@
             } catch { alert("Erro de conexão ao fazer login."); }
         }
 
-        // =========================================================================
-        // INICIALIZAÇÃO DA SESSÃO E CONEXÃO WEBSOCKET (Sprint 7)
-        // =========================================================================
         function iniciarSessao(nomeLogado) {
             document.getElementById("authBox").style.display = "none";
             document.getElementById("gameBox").style.display = "flex";
@@ -223,29 +229,29 @@
             carregarHistorico();
             buscarRanking();
 
-            // Conecta ao WebSocket passando o Token JWT no auth handshake
             const token = localStorage.getItem('token_saas');
-            socket = io(URL_BASE, {
-                auth: { token: token }
-            });
+            socket = io(URL_BASE, { auth: { token: token } });
 
-            // Ouve as mensagens transmitidas pela sala em tempo real
+            // Escuta mensagens chegando em tempo real
             socket.on('mensagemRecebida', (dados) => {
                 const historicoDiv = document.getElementById("historico");
                 let conteudo = marked.parse(dados.texto || "");
-                
-                // Define a classe CSS baseada no remetente
-                let classeCss = "bot";
-                if (dados.tipo === 'usuario') {
-                    conteudo = `<b>${dados.remetente}:</b><br>${conteudo}`;
-                    classeCss = dados.remetente === nomeLogado ? "user" : "bot";
-                } else {
-                    // Mensagem da IA (@gemini)
-                    conteudo = `<b>${dados.remetente}:</b><br>${conteudo}`;
-                    classeCss = "bot";
-                }
+                let classeCss = dados.tipo === 'ia' ? 'bot' : (dados.remetente === nomeLogado ? 'user' : 'bot');
 
-                historicoDiv.innerHTML += `<div class="mensagem ${classeCss}">${conteudo}</div>`;
+                historicoDiv.innerHTML += `
+                    <div class="mensagem ${classeCss}">
+                        <b>${dados.remetente}:</b><br>${conteudo}
+                    </div>
+                `;
+                historicoDiv.scrollTop = historicoDiv.scrollHeight;
+                buscarRanking();
+            });
+
+            // Ouve evento de digitação da IA
+            socket.on('statusDigitando', (dados) => {
+                const typing = document.getElementById("typingIndicator");
+                typing.style.display = dados.status ? "flex" : "none";
+                const historicoDiv = document.getElementById("historico");
                 historicoDiv.scrollTop = historicoDiv.scrollHeight;
             });
         }
@@ -280,9 +286,6 @@
             } catch (erro) { console.error("Erro ao carregar histórico:", erro); }
         }
 
-        // =========================================================================
-        // ENVIO DE MENSAGENS VIA WEBSOCKET (Texto) OU REST (Arquivos)
-        // =========================================================================
         async function enviarMensagem() {
             const input = document.getElementById("pergunta");
             const inputImagem = document.getElementById("imagemUpload");
@@ -300,7 +303,6 @@
             document.getElementById("docUpload").value = "";
 
             try {
-                // Se for arquivo (PDF/TXT ou Imagem), mantém via REST FormData
                 if (arquivoDoc || arquivoImagem) {
                     const historico = document.getElementById("historico");
                     historico.innerHTML += `<div class="mensagem user"><b>Você:</b><br>${texto || "[Arquivo enviado]"}</div>`;
@@ -342,11 +344,11 @@
                     buscarRanking();
                 } 
                 else {
-                    // Chat normal por texto: Usa WebSocket em Tempo Real! (Sprint 7)
+                    // Texto via WebSocket (inclui @gemini)
                     if (socket && socket.connected) {
                         socket.emit('novaMensagem', { texto: texto });
                     } else {
-                        alert("Conexão em tempo real perdida. Recarregue a página.");
+                        alert("Conexão perdida. Recarregue a página.");
                     }
                 }
             } catch (erro) {
